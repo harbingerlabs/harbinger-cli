@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
+          cache: false   # zero dependencies, so there is no go.sum to cache from
 
       - name: formatting
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
@@ -63,6 +64,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
+          cache: false   # zero dependencies, so there is no go.sum to cache from
       - env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
