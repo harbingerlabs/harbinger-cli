@@ -1,0 +1,70 @@
+name: ci
+
+# Fast feedback on every push and PR. Releases (signing, checksums, publishing)
+# live in release.yml — see docs/SIGNING.md.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: formatting
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test -race ./...
+
+      # The invariants that must never regress silently, called out by name so a
+      # failure says what broke rather than "a test failed".
+      - name: PRIVACY — no identifier may reach the outbound payload
+        run: go test ./internal/features/ -run TestNoIdentityLeak -v
+      - name: COMPAT — BloodHound CE and Legacy must give the same graph
+        run: go test ./internal/parse/ -run TestLegacyAndCEProduceIdenticalGraphs -v
+      - name: ROBUSTNESS — a corrupt snapshot must never panic
+        run: go test ./internal/adexplorer/ -run 'TestCorruptionNeverPanics|TestMalformedInputsFailCleanly' -v
+      - name: ROBUSTNESS — messy real-world exports must not crash
+        run: go test ./internal/parse/ -run TestMessyRealWorldExports -v
+      - name: DETERMINISM — the same export must produce the same report
+        run: go test ./internal/hvt/ -run TestResolveIsDeterministic -v
+      - name: MULTI-TENANT — two clients in one folder must never be guessed between
+        run: go test ./internal/load/ -run TestFolderWithTwoSnapshotsIsRefused -v
+      - name: SELF-RUN — the operator manual must ship inside the binary
+        run: go test ./internal/cli/ -run TestEveryHelpTopicHasEmbeddedContent -v
+
+      - name: end-to-end self-test
+        run: go run ./cmd/harbinger check
+
+  # Every target must still compile. Catches a Windows-only break before it
+  # reaches the one platform this product actually ships on.
+  crosscompile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags "-s -w" -o /dev/null ./cmd/harbinger

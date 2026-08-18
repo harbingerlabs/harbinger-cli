@@ -1,0 +1,49 @@
+{
+ "data": [
+  {
+   "Aces": null,
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1105",
+   "Properties": {
+    "domainsid": "S-1-5-21-1111111111-2222222222-3333333333",
+    "enabled": true,
+    "name": "JON.SNOW@NORTH.LOCAL",
+    "objectid": "S-1-5-21-1111111111-2222222222-3333333333-1105"
+   }
+  },
+  {
+   "Aces": null,
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1111",
+   "Properties": {
+    "domainsid": "S-1-5-21-1111111111-2222222222-3333333333",
+    "enabled": true,
+    "name": "EDDARD.STARK@NORTH.LOCAL",
+    "objectid": "S-1-5-21-1111111111-2222222222-3333333333-1111"
+   }
+  },
+  {
+   "Aces": null,
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1106",
+   "Properties": {
+    "domainsid": "S-1-5-21-1111111111-2222222222-3333333333",
+    "enabled": true,
+    "name": "SAMWELL.TARLY@NORTH.LOCAL",
+    "objectid": "S-1-5-21-1111111111-2222222222-3333333333-1106"
+   }
+  },
+  {
+   "Aces": null,
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1120",
+   "Properties": {
+    "domainsid": "S-1-5-21-1111111111-2222222222-3333333333",
+    "enabled": true,
+    "name": "ROBB.STARK@NORTH.LOCAL",
+    "objectid": "S-1-5-21-1111111111-2222222222-3333333333-1120"
+   }
+  }
+ ],
+ "meta": {
+  "count": 4,
+  "type": "users",
+  "version": 6
+ }
+}

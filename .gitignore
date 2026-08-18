@@ -1,0 +1,19 @@
+/bin/
+/dist/
+harbinger-sample/
+*.out
+*.test
+.DS_Store
+
+# Never let a real collection get committed by accident.
+*_users.json
+*_computers.json
+*_groups.json
+*_domains.json
+*BloodHound*.zip
+!testdata/**
+
+# Reverses pseudonymization — must never be committed or shared.
+.harbinger-mapping.json
+harbinger-report-*.md
+harbinger-export-*.json

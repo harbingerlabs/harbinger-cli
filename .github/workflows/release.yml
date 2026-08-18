@@ -1,0 +1,239 @@
+name: release
+
+# Produces the artifact an MSP is actually allowed to run: a single signed
+# Windows .exe, no installer, no runtime, no admin rights — plus published
+# checksums so a security-conscious buyer can verify before executing.
+#
+# An unsigned security tool is unusable for this audience by definition. An MSP's
+# whole job is telling clients not to run unsigned binaries from strangers, and
+# SmartScreen plus their own EDR will enforce that for them. So this workflow
+# HARD FAILS a release when signing credentials are absent, rather than quietly
+# shipping something nobody can run. See docs/SIGNING.md.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. v0.3.0)'
+        required: true
+      dry_run:
+        description: 'Build and check only; do not sign or upload'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write # Azure federated credential for Trusted Signing
+
+env:
+  GO_VERSION: '1.26'
+
+jobs:
+  # ---------------------------------------------------------------- gate
+  # Never cut a release from code that does not pass its own tests.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - run: go vet ./...
+      - run: go test -race ./...
+      - name: privacy leak invariant must hold
+        run: go test ./internal/features/ -run TestNoIdentityLeak -v
+      - name: end-to-end self-test
+        run: go run ./cmd/harbinger check
+
+  # ------------------------------------------------------------- build
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: resolve version
+        id: ver
+        run: |
+          VER="${{ github.event.inputs.version || github.ref_name }}"
+          echo "value=${VER}" >> "$GITHUB_OUTPUT"
+
+      # -trimpath + CGO_ENABLED=0 + a fixed ldflags string makes the build
+      # reproducible: anyone can rebuild from the tag and get the same bytes,
+      # which is what makes a published checksum worth anything.
+      - name: reproducible build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          VER='${{ steps.ver.outputs.value }}'
+          EXT=''; [ "$GOOS" = 'windows' ] && EXT='.exe'
+          OUT="harbinger-${VER}-${GOOS}-${GOARCH}${EXT}"
+          go build -trimpath -buildvcs=false \
+            -ldflags "-s -w -X main.Version=${VER}" \
+            -o "dist/${OUT}" ./cmd/harbinger
+          echo "built ${OUT}: $(stat -c%s "dist/${OUT}") bytes"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          retention-days: 1
+
+  # ------------------------------------------------------------- sign
+  # Windows Authenticode. Primary path is Azure Trusted Signing: no HSM to ship,
+  # certificate rotation handled for you, and it satisfies SmartScreen.
+  sign-windows:
+    needs: build
+    # dry_run produces unsigned builds you can smoke-test or hand to a design
+    # partner who is building from source. It is the only path that works before
+    # the certificate issues, so it must actually be honoured — a declared input
+    # that changes nothing is worse than no input at all.
+    if: github.event_name == 'release' || inputs.dry_run != true
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: unsigned-windows-*
+          path: dist
+          merge-multiple: true
+
+      - name: signing credentials must be present
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.AZURE_CLIENT_ID }}" ]; then
+            echo '::error::No code-signing credentials configured.'
+            echo 'An unsigned Windows binary is blocked by SmartScreen and by the EDR of'
+            echo 'every MSP we are selling to. Releasing one is worse than not releasing.'
+            echo 'Configure the secrets listed in docs/SIGNING.md, or run'
+            echo 'this workflow with dry_run=true to produce unsigned test builds.'
+            exit 1
+          fi
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: sign with Azure Trusted Signing
+        uses: azure/trusted-signing-action@v0
+        with:
+          endpoint: ${{ secrets.TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.TRUSTED_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\dist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      # A signature that does not verify is the same as no signature, and we
+      # would not find out until a customer's EDR quarantined the file.
+      - name: verify the signature actually applied
+        shell: pwsh
+        run: |
+          $bad = 0
+          Get-ChildItem dist -Filter *.exe | ForEach-Object {
+            $sig = Get-AuthenticodeSignature $_.FullName
+            Write-Host "$($_.Name): $($sig.Status) — $($sig.SignerCertificate.Subject)"
+            if ($sig.Status -ne 'Valid') { $bad = 1 }
+            if (-not $sig.TimeStamperCertificate) {
+              Write-Host "::error::$($_.Name) has no trusted timestamp; the signature dies with the certificate."
+              $bad = 1
+            }
+          }
+          if ($bad -ne 0) { exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-windows
+          path: dist/*
+          retention-days: 1
+
+  # --------------------------------------------------------- checksums
+  publish:
+    needs: [build, sign-windows]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: unsigned-*
+          path: staging
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: signed-windows
+          path: staging
+      - name: assemble checksums
+        run: |
+          set -euo pipefail
+          cd staging
+          # The signed .exe replaces the unsigned one of the same name.
+          rm -f SHA256SUMS
+          sha256sum harbinger-* | sort -k2 > SHA256SUMS
+          echo '--- published checksums ---'
+          cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            staging/harbinger-*
+            staging/SHA256SUMS
+          append_body: true
+          body: |
+
+            ---
+            **Verify before you run it** — signature, checksums, and a
+            reproducible build: [docs/VERIFY.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/VERIFY.md)
+
+            Windows binaries are Authenticode signed and RFC-3161 timestamped.
+            Checksums for every artifact are in `SHA256SUMS` above.
+          fail_on_unmatched_files: true
+
+  # ---------------------------------------------------------- dry run
+  # What you can produce before the certificate issues: unsigned binaries with
+  # checksums, as a workflow artifact rather than a public release. Enough to
+  # smoke-test the pipeline and to give a design partner something to check a
+  # source build against — never enough to put on a download page.
+  dry-run-bundle:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: unsigned-*
+          path: staging
+          merge-multiple: true
+      - name: checksums
+        run: |
+          set -euo pipefail
+          cd staging
+          sha256sum harbinger-* | sort -k2 > SHA256SUMS
+          cat SHA256SUMS
+          echo '::warning::UNSIGNED build. SmartScreen and endpoint protection will block the'
+          echo '::warning::Windows binary. Do not put these on a download page — see docs/SIGNING.md.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UNSIGNED-do-not-distribute-${{ github.event.inputs.version }}
+          path: staging/*
+          retention-days: 7

@@ -1,0 +1,35 @@
+{
+ "data": [
+  {
+   "Aces": [
+    {
+     "IsInherited": false,
+     "PrincipalSID": "S-1-5-21-1111111111-2222222222-3333333333-1201",
+     "PrincipalType": "Group",
+     "RightName": "GenericAll"
+    }
+   ],
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1301",
+   "Properties": {
+    "domainsid": "S-1-5-21-1111111111-2222222222-3333333333",
+    "enabled": true,
+    "name": "WINTERFELL.NORTH.LOCAL",
+    "objectid": "S-1-5-21-1111111111-2222222222-3333333333-1301"
+   },
+   "Sessions": {
+    "Collected": true,
+    "Results": [
+     {
+      "ComputerSID": "S-1-5-21-1111111111-2222222222-3333333333-1301",
+      "UserSID": "S-1-5-21-1111111111-2222222222-3333333333-1111"
+     }
+    ]
+   }
+  }
+ ],
+ "meta": {
+  "count": 1,
+  "type": "computers",
+  "version": 6
+ }
+}

@@ -1,0 +1,37 @@
+{
+ "data": [
+  {
+   "Members": [
+    {
+     "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1111",
+     "ObjectType": "User"
+    }
+   ],
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-512",
+   "Properties": {
+    "domainsid": "S-1-5-21-1111111111-2222222222-3333333333",
+    "name": "DOMAIN ADMINS@NORTH.LOCAL",
+    "objectid": "S-1-5-21-1111111111-2222222222-3333333333-512"
+   }
+  },
+  {
+   "Members": [
+    {
+     "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1105",
+     "ObjectType": "User"
+    }
+   ],
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1201",
+   "Properties": {
+    "domainsid": "S-1-5-21-1111111111-2222222222-3333333333",
+    "name": "NIGHT'S WATCH@NORTH.LOCAL",
+    "objectid": "S-1-5-21-1111111111-2222222222-3333333333-1201"
+   }
+  }
+ ],
+ "meta": {
+  "count": 2,
+  "type": "groups",
+  "version": 6
+ }
+}
