@@ -31,16 +31,24 @@ published in the GitHub release, not on a page we can quietly edit.
 
 ## 3. Build it yourself (the strongest check)
 
-The build is reproducible: `-trimpath` and `CGO_ENABLED=0` mean the same source
-at the same tag produces byte-identical output on any machine.
+The build is reproducible: the same source at the same tag produces
+byte-identical output on any machine.
 
 ```sh
 git clone https://github.com/harbingerlabs/harbinger-cli
 cd harbinger-cli
 git checkout v0.1.0
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.Version=v0.1.0" -o harbinger ./cmd/harbinger
+CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+  -ldflags "-s -w -X main.Version=v0.1.0" -o harbinger ./cmd/harbinger
 sha256sum harbinger
 ```
+
+**All four of those flags matter, `-buildvcs=false` most of all.** Go stamps the
+commit hash — and whether your working tree was clean — into the binary by
+default, so without it two people building the same tag get two different
+hashes, and building twice in the same directory gives a third. Our release
+builds with `-buildvcs=false`; match it and the hashes match. The version string
+in `-ldflags` has to match the tag exactly for the same reason.
 
 That hash should match the published one for your platform (the unsigned
 Windows binary will differ from the signed one by exactly the signature block;

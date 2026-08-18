@@ -46,6 +46,29 @@ jobs:
       - name: end-to-end self-test
         run: go run ./cmd/harbinger check
 
+      # VERIFY.md tells a buyer that building the tag themselves reproduces our
+      # published hash. That is the strongest claim we make and the easiest to
+      # break by accident: Go stamps the commit and the working tree's
+      # cleanliness into the binary unless -buildvcs=false is passed, so a
+      # dropped flag would leave every buyer's check failing with no sign here.
+      - name: REPRODUCIBLE — the documented build must be byte-identical
+        run: |
+          set -euo pipefail
+          FLAGS='-trimpath -buildvcs=false'
+          LD='-s -w -X main.Version=test'
+          CGO_ENABLED=0 go build $FLAGS -ldflags "$LD" -o /tmp/repro-a ./cmd/harbinger
+          echo 'dirty' > untracked-file-on-purpose   # a buyer's tree is rarely clean
+          CGO_ENABLED=0 go build $FLAGS -ldflags "$LD" -o /tmp/repro-b ./cmd/harbinger
+          rm -f untracked-file-on-purpose
+          A=$(sha256sum /tmp/repro-a | cut -d' ' -f1)
+          B=$(sha256sum /tmp/repro-b | cut -d' ' -f1)
+          echo "clean tree: $A"
+          echo "dirty tree: $B"
+          if [ "$A" != "$B" ]; then
+            echo "::error::The documented build is not reproducible. VERIFY.md promises it is."
+            exit 1
+          fi
+
   # Every target must still compile. Catches a Windows-only break before it
   # reaches the one platform this product actually ships on.
   crosscompile:

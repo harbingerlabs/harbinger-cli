@@ -11,8 +11,10 @@ PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 win
 
 all: vet test build
 
+# -buildvcs=false matches the release build exactly; without it Go stamps the
+# commit and the working tree's cleanliness in, and no two builds agree.
 build:
-	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/$(BINARY) $(PKG)
+	CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "$(LDFLAGS)" -o bin/$(BINARY) $(PKG)
 
 test:
 	go test ./...
@@ -35,7 +37,7 @@ release: clean
 		os=$${p%/*}; arch=$${p#*/}; ext=""; [ "$$os" = "windows" ] && ext=".exe"; \
 		out="dist/$(BINARY)-$(VERSION)-$$os-$$arch$$ext"; \
 		echo "building $$out"; \
-		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o "$$out" $(PKG) || exit 1; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -buildvcs=false -ldflags "$(LDFLAGS)" -o "$$out" $(PKG) || exit 1; \
 	done
 	@$(MAKE) checksums
 

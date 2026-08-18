@@ -173,9 +173,13 @@ The build is reproducible; the same source at the same tag produces
 byte-identical output on any machine.
 
 ```sh
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o harbinger ./cmd/harbinger
+CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "-s -w" -o harbinger ./cmd/harbinger
 go test ./...
 ```
+
+`-buildvcs=false` is not optional if you intend to compare hashes: without it Go
+stamps the commit and the cleanliness of your working tree into the binary, and
+nothing matches anything. See [VERIFY.md](docs/VERIFY.md).
 
 The tests that matter to a reviewer: `TestNoIdentityLeak` fails the build if any
 identifier reaches the outbound payload; `TestLegacyAndCEProduceIdenticalGraphs`
