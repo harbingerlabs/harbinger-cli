@@ -25,7 +25,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write # Azure federated credential for Trusted Signing
+  id-token: write # Azure federated credential for Artifact Signing
 
 env:
   GO_VERSION: '1.26'
@@ -100,7 +100,7 @@ jobs:
           retention-days: 1
 
   # ------------------------------------------------------------- sign
-  # Windows Authenticode. Primary path is Azure Trusted Signing: no HSM to ship,
+  # Windows Authenticode. Primary path is Azure Artifact Signing: no HSM to ship,
   # certificate rotation handled for you, and it satisfies SmartScreen.
   sign-windows:
     needs: build
@@ -136,12 +136,17 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: sign with Azure Trusted Signing
-        uses: azure/trusted-signing-action@v0
+      # Azure Artifact Signing — the service formerly called Trusted Signing.
+      # The action is @v2 and its account input is signing-account-name;
+      # trusted-signing-account-name still works and is deprecated.
+      # Credentials come from azure/login above (federated OIDC), so no signing
+      # secret is stored in the repository.
+      - name: sign with Azure Artifact Signing
+        uses: azure/artifact-signing-action@v2
         with:
-          endpoint: ${{ secrets.TRUSTED_SIGNING_ENDPOINT }}
-          trusted-signing-account-name: ${{ secrets.TRUSTED_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ secrets.TRUSTED_SIGNING_PROFILE }}
+          endpoint: ${{ secrets.SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.SIGNING_PROFILE }}
           files-folder: ${{ github.workspace }}\dist
           files-folder-filter: exe
           file-digest: SHA256
@@ -156,6 +161,10 @@ jobs:
           $bad = 0
           Get-ChildItem dist -Filter *.exe | ForEach-Object {
             $sig = Get-AuthenticodeSignature $_.FullName
+            # The subject is printed rather than asserted on: an individual
+            # developer certificate carries a person's name, an organization
+            # certificate carries the company's, and the release must not break
+            # on the day that changes. Validity and timestamp are what matter.
             Write-Host "$($_.Name): $($sig.Status) — $($sig.SignerCertificate.Subject)"
             if ($sig.Status -ne 'Valid') { $bad = 1 }
             if (-not $sig.TimeStamperCertificate) {

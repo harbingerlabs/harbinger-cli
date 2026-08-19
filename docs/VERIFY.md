@@ -9,8 +9,18 @@ it first. Here is everything you need to do that.
 Get-AuthenticodeSignature .\harbinger.exe | Format-List Status, SignerCertificate, TimeStamperCertificate
 ```
 
-Expect `Status: Valid`, a signer certificate issued to **Harbinger Labs**, and a
-non-empty timestamp. Anything else — stop, and tell us.
+Expect `Status: Valid` and a non-empty `TimeStamperCertificate`. Anything else —
+stop, and tell us.
+
+**On the signer name:** the certificate is issued to an individual developer, so
+`SignerCertificate` carries a person's name and their city and state, not
+"Harbinger Labs". That is deliberate and worth explaining rather than hiding.
+Microsoft's signing service will not issue an organization certificate to a
+company with less than three years of verifiable operating history, and the rule
+has no exception. We would rather ship a binary you can verify under a real,
+identity-checked name than an unsigned one, or wait a year to be allowed to put
+the company's name on it. When the company qualifies, the name on the
+certificate changes and this paragraph goes away.
 
 ## 2. Check the checksum
 
