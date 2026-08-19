@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Harbinger Labs" width="76" height="76">
+  <img src="assets/logo.png" alt="Harbinger Labs" width="76" height="76">
 </p>
 
 # Harbinger CLI
