@@ -35,34 +35,36 @@ that closes the most of them.
 It reads a file. It never touches your directory, never uses credentials, and in
 its default mode opens no network connections at all.
 
-```console
+```
 $ harbinger gen-testdata --format=adexplorer sample.dat
 $ harbinger analyze sample.dat
 
   HARBINGER — attack-path exposure analysis
-  ────────────────────────────────────────────────────────
-  Loaded 8 objects (2 group, 2 user, 1 ou, 1 gpo, 1 domain, 1 computer) across 12 edge(s)
+  ──────────────────────────────────────────────────────
+  Loaded 8 objects across 12 edge(s)
   Crown objective: DOMAIN ADMINS@CORP.LOCAL
 
-  ⚠  5 routes to full control of DOMAIN ADMINS would probably not be noticed
-     while it was being used.
+  ⚠  5 routes to full control of DOMAIN ADMINS would
+     probably not be noticed while it was being used.
 
   Do this first
-     Remove SVC-BACKUP@CORP.LOCAL's directory replication rights (Replicating
-     Directory Changes and Replicating Directory Changes All) on CORP.LOCAL.
-     On its own this closes 2 of the ranked routes.
+     Remove SVC-BACKUP@CORP.LOCAL's directory replication
+     rights (Replicating Directory Changes and Replicating
+     Directory Changes All) on CORP.LOCAL. On its own this
+     closes 2 of the ranked routes.
 
   What this run could NOT see
-     - Sessions were not collected — paths that start from a logged-on user's
-       credential are invisible in this run.
+     - Sessions were not collected — paths that start from
+       a logged-on user's credential are invisible here.
 
   Top 5 paths (ranked by reachable-and-undetected risk)
 
-  #1  risk 0.749  |  1 hops  |  77% evasion — BLIND SPOT
+  #1  risk 0.749 | 1 hop  | 77% evasion — BLIND SPOT
      SVC-BACKUP@CORP.LOCAL ─[DCSync]─ CORP.LOCAL
 
-  #2  risk 0.480  |  2 hops  |  61% evasion — BLIND SPOT ★crown
-     HELPDESK@CORP.LOCAL ─[GenericAll]─ TIER1ADMINS@CORP.LOCAL ⇢[MemberOf]⇢ DOMAIN ADMINS@CORP.LOCAL
+  #2  risk 0.480 | 2 hops | 61% evasion — BLIND SPOT ★crown
+     HELPDESK@CORP.LOCAL ─[GenericAll]─ TIER1ADMINS@CORP.LOCAL
+       ⇢[MemberOf]⇢ DOMAIN ADMINS@CORP.LOCAL
 ```
 
 Those two commands work on your machine right now, against a synthetic directory
@@ -140,9 +142,9 @@ command behaves identically.
 Verify it rather than believe it:
 
 ```sh
-harbinger check                              # self-test + privacy assertion
-harbinger analyze <export> --show-payload    # exactly what hybrid mode WOULD send
-harbinger analyze <export> --offline         # run it behind a packet capture
+harbinger check                           # self-test + privacy assertion
+harbinger analyze <export> --show-payload # what hybrid mode WOULD send
+harbinger analyze <export> --offline      # run it behind a packet capture
 ```
 
 → **[docs/DATA_HANDLING.md](docs/DATA_HANDLING.md)** — the one-page statement.
@@ -204,12 +206,12 @@ guessing — picking one silently is how a report reaches the wrong customer.
 ## Commands
 
 ```sh
-harbinger analyze <export> [flags]      rank routes to Domain Admin + the top fix
-harbinger diff <t0> <t1>                what opened, what closed
-harbinger check                         self-test; no file, no network
-harbinger gen-testdata [dir|file]       write a sample export to try it on
-harbinger help [topic]                  the manual, offline, inside the binary
-harbinger version                       client + feature schema version
+harbinger analyze <export> [flags]   ranked routes + the top fix
+harbinger diff <t0> <t1>             what opened, what closed
+harbinger check                      self-test; no file, no network
+harbinger gen-testdata [dir|file]    write a sample export to try
+harbinger help [topic]               the manual, offline, in the binary
+harbinger version                    client + feature schema version
 ```
 
 The three documents you need before a first run — how to collect, what leaves
@@ -250,10 +252,16 @@ trusting it:
       {
         "rank": 1, "risk": 0.749, "hops": 1, "evasion": 0.77,
         "blind_spot": true, "start_count": 3,
-        "steps": [{"from_name": "SVC-BACKUP@CORP.LOCAL", "to_name": "CORP.LOCAL", "edge": "DCSync"}]
+        "steps": [
+          {"from_name": "SVC-BACKUP@CORP.LOCAL",
+           "to_name": "CORP.LOCAL", "edge": "DCSync"}
+        ]
       }
     ],
-    "top_fix": {"from_name": "…", "to_name": "…", "edge": "DCSync", "paths_killed": 2}
+    "top_fix": {
+      "from_name": "…", "to_name": "…",
+      "edge": "DCSync", "paths_killed": 2
+    }
   }
 }
 ```
@@ -265,7 +273,8 @@ may be added, never removed or renamed.
 ## Building it yourself
 
 ```sh
-CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "-s -w" -o harbinger ./cmd/harbinger
+CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+  -ldflags "-s -w" -o harbinger ./cmd/harbinger
 go test ./...
 ```
 
